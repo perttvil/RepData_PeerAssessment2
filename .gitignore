@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.RData
+*.Rproj
+*.bz2
+analysis.html
+analysis_cache

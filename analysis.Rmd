@@ -1,0 +1,113 @@
+---
+title: "Weather Events and their impact on Economy and Public Health"
+author: "John Doe"
+date: "20th january 2015"
+output:
+  html_document:
+    fig_width: 10
+---
+
+## Synopsis
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern. Specially tornadoes and floods have caused lots of unnecessary deaths and economic loses.
+
+## Data Processing
+
+**Performed steps**:  
+* Get and load the data  
+* Remove unused information
+
+```{r loading and cleaning the data,cache=TRUE}
+
+# check to see if the data set exists; if not, download it
+if (!file.exists('repdata-data-StormData.csv.bz2')) {
+    # download the zip file and unzip
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", 
+                  "repdata-data-StormData.csv.bz2", mode="wb")
+}
+# load the data from the bz2 file
+storm_data_connection <- bzfile("repdata-data-StormData.csv.bz2", open = "r")
+storm_data <- read.table(storm_data_connection, header = TRUE, sep = ",")
+close(storm_data_connection)
+remove(storm_data_connection)
+
+# remove column information that we do not use to save space
+good_columns <- c("EVTYPE",                  # Event type
+                  "FATALITIES", "INJURIES",  # Fatalities and Injuries
+                  "PROPDMG", "PROPDMGEXP",   # Property damange and exponential
+                  "CROPDMG", "CROPDMGEXP")   # Crop damage and exponential
+storm_data <- storm_data[,good_columns]
+summary(storm_data)
+```
+
+* Add new properties for damage and crop damage to get the total damage
+* Calculate fatalities and injuries (total amount)
+
+```{r Calculate the damage, cache=TRUE}
+#Add property damage and crop damage to get the total damage
+levels(storm_data$PROPDMGEXP) <- c(
+  "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", 
+  "1000000000", "1", "1", "1000", "1000000", "1000000")
+levels(storm_data$CROPDMGEXP) <- c(
+  "1", "1", "1", "1", "1000000000", "1000", 
+  "1000", "1000000", "1000000")
+storm_data$PROPDMG <- storm_data$PROPDMG * 
+  as.integer(as.character(storm_data$PROPDMGEXP))
+storm_data$CROPDMG <- storm_data$CROPDMG * 
+  as.integer(as.character(storm_data$CROPDMGEXP))
+
+# add up damage
+storm_data$DAMAGE <- storm_data$PROPDMG + storm_data$CROPDMG
+# damage in billions
+storm_data$DAMAGEBIL <- sapply(storm_data$DAMAGE, function(x) x/1000000000)
+# Calculate fatalities and injuries (total amount)
+storm_data$HEALTH <- storm_data$INJURIES + storm_data$FATALITIES
+# health in kilos
+storm_data$HEALTHK <- sapply(storm_data$HEALTH, function(x) x/1000)
+```
+
+## Results
+### Population health impacts
+Question: Across the United States, which types of events are most harmful with respect to population health?
+
+```{r Impact plot about population health issues because of weather events}
+total <- sort(tapply(storm_data$HEALTHK, storm_data$EVTYPE, sum),decreasing = TRUE)
+count <- 20;
+par(pin=c(10,8)) # set figure size in inches
+par(las=2) # make label text perpendicular to axis
+par(mar=c(5,15,4,2)) # increase y-axis margin.
+par(mgp=c(0.5, 2, 0)) # set margins
+barplot(head(total,count),
+        horiz=TRUE,
+        main="Top 20 most unhealthy weather events",
+        ylab="Event",
+        xlab="Fatalities and injuries (thousands)",
+        xlim=c(0,100),
+        border="black",
+        col=c("red"))
+max(total)
+```
+
+Tornados caused much more heath damage than the others.
+
+### Economy impacts
+Question: Across the United States, which types of events have the greatest economic consequences?
+
+```{r Plot about economy impacts}
+total <- sort(tapply(storm_data$DAMAGEBIL, storm_data$EVTYPE, sum), decreasing = TRUE)
+par(pin=c(10,8)) # set figure size in inches
+par(las=2) # make label text perpendicular to axis
+par(mar=c(5,15,4,2)) # increase y-axis margin.
+par(mgp=c(0.5, 2, 0)) # set margins
+barplot(head(total,count),
+        horiz=TRUE,
+        main="Top 20 most expensive weather events",
+        ylab="Event",
+        xlab="Billion USD",
+        xlim=c(0,160),
+        border="black",
+        col=c("red"),
+        pin=c(10,8))
+max(total)
+```
+
+Floods caused much more costs than the other weather events.
